@@ -104,7 +104,7 @@ class ChPassActionTests(FunctionalTestCase):
         super(ChPassActionTests, self).tearDown()
 
     def test_action_success(self):
-        self.db.actions.insert(TOU_ACTION)
+        self.db.actions.insert(CHPASS_ACTION)
         # token verification is disabled in the setUp
         # method of FunctionalTestCase
         url = ('/?userid=123467890123456789014567'
@@ -112,5 +112,5 @@ class ChPassActionTests(FunctionalTestCase):
         res = self.testapp.get(url)
         self.assertEqual(res.status, '302 Found')
         res = self.testapp.get(res.location)
-        self.assertIn('Change Password', res.body)
-        form = res.forms['tou-form']
+        self.assertIn('Change password', res.body)
+        form = res.forms['passwords-form']

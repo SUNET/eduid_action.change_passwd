@@ -4,24 +4,20 @@
           {{ _('Change password') }}
         </h3>
 
-        {% trans %}
-          <p>You can change your current password using this form. A strong password
-              has been generated for you. You can accept the generated password by clicking
-              "Change password" or you can opt to choose your own password using the checkbox.</p>
-        {% endtrans %}
+          <p>{{ _('You can change your current password using this form. A strong password '
+                  'has been generated for you. You can accept the generated password by clicking '
+                  '"Change password" or you can opt to choose your own password using the checkbox.') }}</p>
 
         <div class="password-format hide">
-        {% trans %}
           </p>
-          <p>Choose a strong password. Some tips:</p>
+          <p>{{ _('Choose a strong password. Some tips:') }}</p>
           <ul>
-            <li>Use upper- and lowercase characters (preferably not in the beginning or end)</li>
-            <li>Add digits somewhere else than at the end of the password</li>
-            <li>Add special characters, such as @ $ / + _ %</li>
-            <li>Spaces are ignored</li>
+            <li>{{ _('Use upper- and lowercase characters (preferably not in the beginning or end)') }}</li>
+            <li>{{ _('Add digits somewhere else than at the end of the password') }}</li>
+            <li>{{ _('Add special characters, such as @ $ / + _ %') }}</li>
+            <li>{{ _('Spaces are ignored') }}</li>
           </ul>
           </p>
-        {% endtrans %}
         </div>
 
         <form accept-charset="utf-8"
@@ -29,7 +25,7 @@
               method="POST"
               action="#"
               class="form-horizontal"
-              id="passwordsview-form">
+              id="passwords-form">
 
               <div>
                 <fieldset class="" id="basic">
@@ -82,7 +78,7 @@
                 </fieldset>
               </div>
               <div class="form-actions">
-                <button value="save" class="btn btn-primary  disabled" type="submit" name="save" id="passwordsview-formsave">
+                <button value="save" class="btn btn-primary  disabled" type="submit" name="save" id="passwords-formsave">
                   {{ _('Change password') }}
                 </button>
               </div>

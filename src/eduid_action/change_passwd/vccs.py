@@ -6,7 +6,8 @@ from bson import ObjectId
 
 import vccs_client
 
-from eduid_action.change_passwd import log
+import logging
+log = logging.getLogger(__name__)
 
 
 class TestVCCSClient(object):

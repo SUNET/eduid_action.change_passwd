@@ -51,6 +51,7 @@ class ChangePasswdPlugin(ActionPlugin):
     def get_translations(cls):
         return cls.translations
 
+    @classmethod
     def inludeme(self, config):
         '''
         Plugin specific configuration
@@ -97,7 +98,7 @@ class ChangePasswdPlugin(ActionPlugin):
             '_': self.get_ugettext(request),
             'csrf_token': request.session.get_csrf_token(),
             'suggested_password': generate_suggested_password(request),
-            'password_entropy': request.registry.settings['password_entropy'],
+            'password_entropy': request.registry.settings.get('password_entropy', '60'),
             'errors': errors,
             }
         return template.render(**context)
