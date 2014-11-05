@@ -34,11 +34,12 @@ setup(name='eduid_action.change_passwd',
       include_package_data=True,
       zip_safe=False,
       install_requires=[
-          'setuptools',
-          'eduid_actions',
-          'eduid_am',
-          'jinja2',
+          'setuptools==3.6',
+          'eduid_actions==0.1',
+          'eduid_am==0.4.9-dev',
+          'jinja2==2.7.3',
           'pwgen==0.4',
+          'vccs_client==0.4.1',
       ],
       entry_points="""
         [eduid_actions.action]
