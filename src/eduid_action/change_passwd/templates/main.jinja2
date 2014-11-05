@@ -1,4 +1,287 @@
+<div id="change-password-form-container">
+    <div id="changePasswordDialog">
+        <h3 id="askDialogPrompt">
+          {{ _('Change password') }}
+        </h3>
 
-<form name="change-password-form" id="change-password-form" method="POST" action="#">
+        {% trans %}
+          <p>You can change your current password using this form. A strong password
+              has been generated for you. You can accept the generated password by clicking
+              "Change password" or you can opt to choose your own password using the checkbox.</p>
+        {% endtrans %}
 
-</form>
+        <div class="password-format hide">
+        {% trans %}
+          </p>
+          <p>Choose a strong password. Some tips:</p>
+          <ul>
+            <li>Use upper- and lowercase characters (preferably not in the beginning or end)</li>
+            <li>Add digits somewhere else than at the end of the password</li>
+            <li>Add special characters, such as @ $ / + _ %</li>
+            <li>Spaces are ignored</li>
+          </ul>
+          </p>
+        {% endtrans %}
+        </div>
+
+        <form accept-charset="utf-8"
+              enctype="multipart/form-data"
+              method="POST"
+              action="#"
+              class="form-horizontal"
+              id="passwordsview-form">
+
+              <div>
+                <fieldset class="" id="basic">
+                  <input type="hidden"
+                         id="Field1"
+                         value="{{ csrf_token }}"
+                         name="csrf">
+                    <div title="" id="item-Field2" class="control-group ">
+                      <label class="control-label" for="Field2">
+                        {{ _('Current password') }}<span id="req-Field2" class="req"></span>
+                      </label>
+                      <div class="controls">
+                        <input type="password" size="20" id="Field2" value="" name="old_password">
+                      </div>
+                    </div>
+                    <div title="" id="item-Field3" class="control-group ">
+                      <label class="control-label" for="Field3">
+                        {{ _('Use my own password') }}
+                      </label>
+                      <div class="controls">
+                        <input type="checkbox" id="Field3" value="true" name="use_custom_password">
+                      </div>
+                    </div>
+                    <div title="" id="item-Field4" class="control-group " style="display: block;">
+                      <label class="control-label" for="Field4">
+                        {{ _('Suggested password') }}
+                      </label>
+                      <div class="controls">
+                        <span class="uneditable-input suggested-password" id="Field4">
+                          {{ suggested_password }}
+                        </span>
+                      </div>
+                    </div>
+                    <div title="" id="item-Field5" class="control-group" style="display: none;">
+                      <label class="control-label" for="Field5">
+                        {{ _('Custom password') }}
+                      </label>
+                      <div class="controls">
+                        <input type="password" class="custom-password" size="20" id="Field5" value="" name="custom_password"><div class="progress"><div class="bar"></div></div>
+                      </div>
+                    </div>
+                    <div title="" id="item-Field6" class="control-group" style="display: none;">
+                      <label class="control-label" for="Field6">
+                        {{ _('Repeat the password') }}
+                      </label>
+                      <div class="controls">
+                        <input type="password" class="custom-password" size="20" id="Field6" value="" name="repeated_password">
+                      </div>
+                    </div>
+                </fieldset>
+              </div>
+              <div class="form-actions">
+                <button value="save" class="btn btn-primary  disabled" type="submit" name="save" id="passwordsview-formsave">
+                  {{ _('Change password') }}
+                </button>
+              </div>
+        </form>
+        <script>
+(function () {
+    var password_min_entropy = {{ password_entropy }},
+        pwquality_errors = undefined,
+        pwequality_errors = undefined,
+        pwdialog = $("#changePasswordDialog"),
+
+        get_input = function (name) {
+            // return an input container from jQuery
+            return pwdialog.find("input[name=" + name + "]");
+        },
+
+        get_password = function (name) {
+            // remove spaces from passwords, just like vccs-client does
+            var passwd = get_input(name).val();
+            if (passwd !== undefined) {
+                return passwd.split(' ').join('');
+            } else {
+                return '';
+            }
+        },
+
+        password_form_toggle = function () {
+            if (get_input("use_custom_password").is(":checked")) {
+                pwdialog.find("span.suggested-password").parents(".control-group").hide();
+                // Show the custom password input and help text
+                pwdialog.find(".custom-password").parents(".control-group").fadeIn();
+                pwdialog.find("div.password-format").fadeIn();
+            } else {
+                // Empty the custom password field and hide help text
+                pwdialog.find(".custom-password").parents(".control-group").removeClass("error").
+                    hide().find("input").val("");
+                pwdialog.find("div.password-format").hide();
+                pwdialog.find(".help-inline .live").remove();
+                // Show the suggested password
+                pwdialog.find("span.suggested-password").parents(".control-group").fadeIn();
+            }
+            update_save_button();
+        },
+
+        init_password_form = function () {
+            // Reset form values every time the modal form is brought up
+            get_input("old_password").val("");
+            get_input("custom_password").val("");
+            get_input("repeated_password").val("");
+            get_input("use_custom_password").off("click");
+            get_input("use_custom_password").click(password_form_toggle);
+            password_form_toggle();
+        },
+
+        init_password_dialog = function () {
+            var events,
+                body = $('body');
+            $("#changePassword").click(function() {
+                 pwdialog.modal('show');
+                 init_password_form();
+                 $('#changePassword').trigger('password-dialog-open');
+             });
+
+            events = $._data(body[0], 'events')['form-submitted'];
+            events = $.map(events, function (o) {
+              return o.handler;
+            });
+
+            body.off('form-submitted');
+            body.on('form-submitted', function () {
+                msg_area = pwdialog.find('div.alert');
+                if (msg_area.hasClass('alert-error')) {
+                    msg_area.addClass('fixed');
+                } else {
+                    msg_area.removeClass('fixed');
+                    $('body').trigger('action-executed');
+                    pwdialog.find('a.close').click();
+                }
+            });
+
+            $.each(events, function (i, o) {
+                 body.on('form-submitted', o);
+            });
+        },
+
+        update_save_button = function () {
+            var save_btn = pwdialog.find("button[name=save]"),
+                enable_button = true;
+
+            if (get_password("old_password") == '') {
+                enable_button = false;
+            }
+            if (enable_button) {
+                if (get_input("use_custom_password").is(":checked")) {
+                    if (pwquality_errors != 0 || pwequality_errors != 0) { enable_button = false }
+                }
+            }
+            if (! enable_button) {
+                save_btn.addClass('disabled');
+            } else {
+                save_btn.removeClass('disabled');
+            }
+        },
+
+        error_messages = function (input, messages) {
+            var input_parents = input.parents(".control-group")
+                  .toggleClass("error", (messages.length > 0)),
+                messages_html = '';
+            input_parents.find(".controls span.help-inline.errors").remove();
+            if (messages.length > 0) {
+                $.each(messages, function(i, message) {
+                    messages_html += "<p class='error live'>" + message + "</p>";
+                });
+
+                input_parents.find(".controls").append("<span class='help-inline errors'>" + messages_html + "</span>");
+            }
+            update_save_button();
+        },
+
+        check_custom_password = function () {
+            var custom_password = get_password('custom_password'),
+                repeated_password = get_password('repeated_password'),
+                verdict = zxcvbn(custom_password, ["eduid"]),
+                suggested_password = $('.suggested-password').html().split(' ').join(''),
+                messages = [],
+                password_field = get_input("custom_password");
+
+            password_field.val(custom_password);  // properly remove spaces for pwcheck
+
+            /*
+            console.debug("Entropy: " + verdict.entropy);
+            console.debug("Matches: ", verdict.match_sequence);
+            console.debug("Password: ", password);
+            */
+
+            if (custom_password !== suggested_password &&
+                  (verdict.entropy < password_min_entropy)) {
+                messages.push('{{ _("A stronger password is required.") }}');
+            }
+            pwquality_errors = messages.length;
+            error_messages(password_field.parent(), messages);
+            check_repeated_password();  // a change to this password might also affect equality status
+        },
+
+        check_repeated_password = function () {
+            var password = get_password('custom_password'),
+                repeated_password = get_password('repeated_password'),
+                repeated_password_field = get_input("repeated_password"),
+                messages = [];
+
+            repeated_password_field.val(repeated_password);  // properly remove spaces for pwcheck
+
+            if (repeated_password != password) {
+                messages.push('{{_("Type the same password again")}}');
+            }
+            pwequality_errors = messages.length;
+            error_messages(repeated_password_field, messages);
+        },
+
+        check_old_password = function () {
+            // old password field change, update save button status
+            update_save_button();
+        };
+
+    $('body').on('formready', init_password_form);
+
+    $('body').on('form-submitted', function () {
+        if (get_input("use_custom_password").is(":checked")) {
+          check_custom_password();
+        }
+    });
+
+    /* Password meter */
+    var required_entropy = {{ password_entropy }};
+    var pwbar_options = {};
+    pwbar_options.ui = {
+        //verdicts: ["Too weak", "Halfway", "Almost", "Strong"],
+        showVerdicts: false,
+        scores: [required_entropy * 0.25,
+                 required_entropy * 0.5,
+                 required_entropy * 0.75,
+                 required_entropy],
+        bootstrap2: true
+    };
+    pwbar_options.common = {
+        zxcvbn: true,
+        usernameField: 'eduid'   // make zxcvbn give negative score to the word eduID
+    };
+    get_input('custom_password').pwstrength(pwbar_options);
+
+    // Set up triggers on change events
+    var triggers = "change focusout keyup onpaste paste mouseleave";
+    get_input('old_password').on(triggers, check_old_password);
+    get_input('custom_password').on(triggers, check_custom_password);
+    get_input('repeated_password').on(triggers, check_repeated_password);
+
+    $(document).ready(init_password_dialog);
+}());
+
+       </script>
+    </div>
+</div>

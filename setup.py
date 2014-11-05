@@ -36,7 +36,9 @@ setup(name='eduid_action.change_passwd',
       install_requires=[
           'setuptools',
           'eduid_actions',
+          'eduid_am',
           'jinja2',
+          'pwgen==0.4',
       ],
       entry_points="""
         [eduid_actions.action]
