@@ -52,7 +52,7 @@ class ChangePasswdPlugin(ActionPlugin):
         return cls.translations
 
     @classmethod
-    def inludeme(self, config):
+    def includeme(self, config):
         '''
         Plugin specific configuration
         '''
@@ -84,8 +84,7 @@ class ChangePasswdPlugin(ActionPlugin):
         am_db = am_mongodb.get_database()
         config.set_request_property(profiles_db, 'profiles_db', reify=True)
         config.set_request_property(am_db, 'am_db', reify=True)
-        userbd = UserDB(settings)
-        settings['userdb'] = userdb
+        userdb = UserDB(settings)
         config.set_request_property(userdb, 'userdb', reify=True)
 
     def get_number_of_steps(self):
