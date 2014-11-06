@@ -9,6 +9,20 @@ import vccs_client
 from eduid_action.change_passwd import log
 
 
+class TestVCCSClient(object):
+    def __init__(self):
+        self.credentials = {}
+        
+    def authenticate(self, user_id, factors):
+        pass
+
+    def add_credentials(user_id, factors):
+        pass
+
+    def revoke_credentials(user_id, revoked):
+        pass
+
+
 def get_vccs_client(vccs_url):
     """
     Instantiate a VCCS client.
@@ -18,6 +32,10 @@ def get_vccs_client(vccs_url):
     :return: vccs client
     :rtype: VCCSClient
     """
+    if vccs_url == 'dummy':
+        return TestVCCSClient(
+            base_url=vccs_url,
+        )
     return vccs_client.VCCSClient(
         base_url=vccs_url,
     )
