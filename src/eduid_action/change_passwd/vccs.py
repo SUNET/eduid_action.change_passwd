@@ -11,17 +11,44 @@ log = logging.getLogger(__name__)
 
 
 class TestVCCSClient(object):
+    '''
+    Mock VCCS client for testing. It stores credentials locally,
+    and it only checks for the credential_id to authenticate/revoke.
+
+    It is used as a singleton, so we can manipulate it in the tests
+    before the real functions (check_password, add_credentials) use it.
+    '''
     def __init__(self):
         self.credentials = {}
         
     def authenticate(self, user_id, factors):
-        pass
+        stored = self.credentials[user_id]
+        for factor in factors:
+            fdict = factor.to_dict()
+            found = False
+            for sfactor in stored:
+                sdict = sfactor.to_dict()
+                if fdict['credential_id'] == sdict['credential_id']:
+                    found = True
+                    break
+            if not found:
+                return False
+        return True
 
     def add_credentials(user_id, factors):
-        pass
+        self.credentials[user_id] = factors
 
     def revoke_credentials(user_id, revoked):
-        pass
+        stored = self.credentials[user_id]
+        for rfactor in revoked:
+            rdict = rfactor.to_dict()
+            for factor in stored:
+                fdict = factor.to_dict()
+                if rdict['credential_id'] == fdict['credential_id']:
+                    stored.remove(factor)
+                    break
+
+test_vccs = TestVCCSClient()
 
 
 def get_vccs_client(vccs_url):
@@ -34,9 +61,7 @@ def get_vccs_client(vccs_url):
     :rtype: VCCSClient
     """
     if vccs_url == 'dummy':
-        return TestVCCSClient(
-            base_url=vccs_url,
-        )
+        return test_vccs
     return vccs_client.VCCSClient(
         base_url=vccs_url,
     )
