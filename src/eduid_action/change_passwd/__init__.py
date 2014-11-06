@@ -85,6 +85,7 @@ class ChangePasswdPlugin(ActionPlugin):
         config.set_request_property(profiles_db, 'profiles_db', reify=True)
         config.set_request_property(am_db, 'am_db', reify=True)
         userbd = UserDB(settings)
+        settings['userdb'] = userdb
         config.set_request_property(userdb, 'userdb', reify=True)
 
     def get_number_of_steps(self):
@@ -106,7 +107,7 @@ class ChangePasswdPlugin(ActionPlugin):
     def perform_action(self, action, request):
         _ = self.get_ugettext(request)
         self._check_csrf_token(request)
-        old_passwd = request.POST.get('old_password', '')
+        old_password = request.POST.get('old_password', '')
         old_password = old_password.replace(" ", "")
         userid = action['user_oid']
         self._check_old_password(request, userid, old_password)
@@ -133,7 +134,7 @@ class ChangePasswdPlugin(ActionPlugin):
 
     #  Helper methods
     def _check_csrf_token(self, request):
-        value = request.POST.get('csrf_token', '')
+        value = request.POST.get('csrf', '')
         token = request.session.get_csrf_token()
         if value != token:
             log.debug("CSRF token validation failed: Form {!r} != Session {!r}".format(value, token))

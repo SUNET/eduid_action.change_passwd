@@ -35,10 +35,10 @@ class TestVCCSClient(object):
                 return False
         return True
 
-    def add_credentials(user_id, factors):
+    def add_credentials(self, user_id, factors):
         self.credentials[user_id] = factors
 
-    def revoke_credentials(user_id, revoked):
+    def revoke_credentials(self, user_id, revoked):
         stored = self.credentials[user_id]
         for rfactor in revoked:
             rdict = rfactor.to_dict()

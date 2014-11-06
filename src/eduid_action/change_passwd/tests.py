@@ -4,8 +4,10 @@ from datetime import datetime
 from bson import ObjectId
 from copy import deepcopy
 import pymongo
+import vccs_client
 from eduid_am.db import MongoDB
 from eduid_actions.testing import FunctionalTestCase
+from eduid_action.change_passwd.vccs import get_vccs_client
 
 
 CHPASS_ACTION = {
@@ -17,8 +19,15 @@ CHPASS_ACTION = {
             }
         }
 
+TEST_PASSWORD_1 = {
+        'id': ObjectId('112345678901234567890123'),
+        'salt': '$NDNv1H1$9c810d852430b62a9a7c6159d5d64c41c3831846f81b6799b54e1e8922f11545$32$32$',
+    }
+
+TEST_USER_ID = ObjectId('123467890123456789014567')
+
 TEST_USER = {
-    '_id': ObjectId('123467890123456789014567'),
+    '_id': TEST_USER_ID,
     'givenName': 'John',
     'sn': 'Smith',
     'displayName': 'John Smith',
@@ -50,10 +59,7 @@ TEST_USER = {
         'email': 'johnsmith3@example.com',
         'verified': False,
     }],
-    'passwords': [{
-        'id': ObjectId('112345678901234567890123'),
-        'salt': '$NDNv1H1$9c810d852430b62a9a7c6159d5d64c41c3831846f81b6799b54e1e8922f11545$32$32$',
-    }],
+    'passwords': [deepcopy(TEST_PASSWORD_1)],
     'postalAddress': [{
         'type': 'home',
         'country': 'SE',
@@ -75,36 +81,36 @@ TEST_USER = {
 class ChPassActionTests(FunctionalTestCase):
 
     def setUp(self):
+        mongo_uri_base = 'mongodb://localhost:{0}/'
+        self.settings = {
+                'mongo_uri_am': mongo_uri_base + 'eduid_am_testing',
+                'mongo_uri_dashboard': mongo_uri_base + 'eduid_dashboard_testing',
+                'vccs_url': 'dummy',
+                }
         super(ChPassActionTests, self).setUp()
-        settings = self.testapp.app.registry.settings
-        mongo_uri_base = 'mongodb://localhost:{0}/'.format(str(self.port))
-        mongo_uri_am = mongo_uri_base + 'eduid_am'
-        mongo_uri_dashboard = mongo_uri_base + 'eduid_dashboard'
-        try:
-            mongodb_am = MongoDB(mongo_uri_am)
-            mongodb_dashboard = MongoDB(mongo_uri_dashboard)
-        except pymongo.errors.ConnectionFailure:
-            self.setup_temp_db()
-            mongo_uri_base = 'mongodb://localhost:{0}/'.format(str(self.port))
-            mongo_uri_am = mongo_uri_base + 'eduid_am'
-            mongo_uri_dashboard = mongo_uri_base + 'eduid_dashboard'
-            mongodb_am = MongoDB(mongo_uri_am)
-            mongodb_dashboard = MongoDB(mongo_uri_dashboard)
-        settings.update({
-            'mongo_uri_am': mongo_uri_am,
-            'mongo_uri_dashboard': mongo_uri_dashboard,
-            'vccs_url': 'dummy',
-            })
+        mongodb_am = MongoDB(self.settings['mongo_uri_am'])
+        mongodb_dashboard = MongoDB(self.settings['mongo_uri_dashboard'])
         self.am_db = mongodb_am.get_database()
         self.dashboard_db = mongodb_dashboard.get_database()
+        self.vccs_client = get_vccs_client('dummy')
 
     def tearDown(self):
         self.am_db.attributes.drop()
         self.dashboard_db.profiles.drop()
+        self.vccs_client.credentials = {}
         super(ChPassActionTests, self).tearDown()
+
+    def add_credential(self, userid, passwd):
+        factor = vccs_client.VCCSPasswordFactor(
+            passwd,
+            credential_id=str(TEST_PASSWORD_1['id']),
+            salt=str(TEST_PASSWORD_1['salt']),
+        )
+        self.vccs_client.add_credentials(userid, [factor])
 
     def test_action_success(self):
         self.db.actions.insert(CHPASS_ACTION)
+        self.add_credential(TEST_USER_ID, 'abcd')
         # token verification is disabled in the setUp
         # method of FunctionalTestCase
         url = ('/?userid=123467890123456789014567'
@@ -114,3 +120,7 @@ class ChPassActionTests(FunctionalTestCase):
         res = self.testapp.get(res.location)
         self.assertIn('Change password', res.body)
         form = res.forms['passwords-form']
+        form['old_password'] = 'abcd'
+        self.assertEqual(self.db.actions.find({}).count(), 1)
+        form.submit('save')
+        self.assertEqual(self.db.actions.find({}).count(), 0)
