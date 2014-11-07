@@ -81,11 +81,20 @@ class ChangePasswdPlugin(ActionPlugin):
             profiles_mongodb = MongoDB(db_uri=settings['mongo_uri_dashboard'])
             am_mongodb = MongoDB(db_uri=settings['mongo_uri_am'])
         profiles_db = profiles_mongodb.get_database()
+        settings['profiles_db'] = profiles_db
+        config.set_request_property(lambda x: x.registry.settings['profiles_db'],
+                                    'profiles_db',
+                                    reify=True)
         am_db = am_mongodb.get_database()
-        config.set_request_property(profiles_db, 'profiles_db', reify=True)
-        config.set_request_property(am_db, 'am_db', reify=True)
+        settings['am_db'] = am_db
+        config.set_request_property(lambda x: x.registry.settings['am_db'],
+                                    'am_db',
+                                    reify=True)
         userdb = UserDB(settings)
-        config.set_request_property(userdb, 'userdb', reify=True)
+        settings['userdb'] = userdb
+        config.set_request_property(lambda x: x.registry.settings['userdb'],
+                                    'userdb',
+                                    reify=True)
 
     def get_number_of_steps(self):
         return self.steps
