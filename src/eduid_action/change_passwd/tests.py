@@ -89,9 +89,11 @@ class ChPassActionTests(FunctionalTestCase):
                 }
         super(ChPassActionTests, self).setUp()
         mongodb_am = MongoDB(self.settings['mongo_uri_am'])
-        mongodb_dashboard = MongoDB(self.settings['mongo_uri_dashboard'])
         self.am_db = mongodb_am.get_database()
+        self.am_db.attributes.insert(deepcopy(TEST_USER))
+        mongodb_dashboard = MongoDB(self.settings['mongo_uri_dashboard'])
         self.dashboard_db = mongodb_dashboard.get_database()
+        self.dashboard_db.profiles.insert(deepcopy(TEST_USER))
         self.vccs_client = get_vccs_client('dummy')
 
     def tearDown(self):
