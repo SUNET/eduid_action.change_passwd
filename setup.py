@@ -35,11 +35,11 @@ setup(name='eduid_action.change_passwd',
       zip_safe=False,
       install_requires=[
           'setuptools==3.6',
-          'eduid_actions==0.1',
-          'eduid_am==0.4.9-dev',
+          'eduid_actions>=0.0.1-dev',
+          'eduid_am>=0.4.9-dev',
           'jinja2==2.7.3',
           'pwgen==0.4',
-          'vccs_client==0.4.1',
+          'vccs_client>=0.4.1',
       ],
       entry_points="""
         [eduid_actions.action]
