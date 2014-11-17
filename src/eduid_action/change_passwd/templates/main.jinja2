@@ -33,13 +33,17 @@
                          id="Field1"
                          value="{{ csrf_token }}"
                          name="csrf">
-                    <div title="" id="item-Field2" class="control-group ">
+                    <div title="" id="item-Field2"
+                         class="control-group{% if 'old_password' in errors %} has-error{% endif %}">
                       <label class="control-label" for="Field2">
                         {{ _('Current password') }}<span id="req-Field2" class="req"></span>
                       </label>
                       <div class="controls">
                         <input type="password" size="20" id="Field2" value="" name="old_password">
                       </div>
+                      {% if 'old_password' in errors %}
+                      <span class="has-error">{{ errors['old_password'] }}</span>
+                      {% endif %}
                     </div>
                     <div title="" id="item-Field3" class="control-group ">
                       <label class="control-label" for="Field3">

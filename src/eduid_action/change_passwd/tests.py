@@ -112,7 +112,7 @@ class ChPassActionTests(FunctionalTestCase):
         )
         self.vccs.add_credentials(str(userid), [factor])
 
-    def test_action_success(self):
+    def get_password_form(self):
         self.db.actions.insert(CHPASS_ACTION)
         self.add_credential(TEST_USER_ID, 'abcd')
         # token verification is disabled in the setUp
@@ -123,10 +123,22 @@ class ChPassActionTests(FunctionalTestCase):
         self.assertEqual(res.status, '302 Found')
         res = self.testapp.get(res.location)
         self.assertIn('Change password', res.body)
-        form = res.forms['passwords-form']
+        return res.forms['passwords-form']
+
+    def test_action_success(self):
+        form = self.get_password_form()
         form['old_password'] = 'abcd'
         self.assertEqual(self.db.actions.find({}).count(), 1)
         with patch.object(RootFactory, 'propagate_user_changes'):
             RootFactory.propagate_user_changes.return_value = None
             res = form.submit('save')
         self.assertEqual(self.db.actions.find({}).count(), 0)
+
+    def test_action_wrong_password(self):
+        form = self.get_password_form()
+        form['old_password'] = 'efgh'
+        self.assertEqual(self.db.actions.find({}).count(), 1)
+        with patch.object(RootFactory, 'propagate_user_changes'):
+            RootFactory.propagate_user_changes.return_value = None
+            res = form.submit('save')
+        self.assertIn('Current password is incorrect', res.body)

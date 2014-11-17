@@ -28,7 +28,7 @@ class TestVCCSClient(object):
             found = False
             for sfactor in stored:
                 sdict = sfactor.to_dict('auth')
-                if fdict['credential_id'] == sdict['credential_id']:
+                if fdict['H1'] == sdict['H1']:
                     found = True
                     break
             if not found:

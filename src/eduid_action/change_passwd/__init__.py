@@ -171,5 +171,5 @@ class ChangePasswdPlugin(ActionPlugin):
         password = check_password(vccs_url, old_password, user)
         if not password:
             _ = self.get_ugettext(request)
-            err = _('Current password is incorrect')
-            raise self.ValidationError(err)
+            errors = {'old_password': _('Current password is incorrect')}
+            raise self.ValidationError(errors)
