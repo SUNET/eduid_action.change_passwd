@@ -3,26 +3,27 @@
 from datetime import datetime
 from bson import ObjectId
 from copy import deepcopy
-import pymongo
+from mock import patch
 import vccs_client
 from eduid_am.db import MongoDB
 from eduid_actions.testing import FunctionalTestCase
+from eduid_actions.context import RootFactory
 from eduid_action.change_passwd.vccs import get_vccs_client
 
 
 CHPASS_ACTION = {
-        '_id': ObjectId('234567890123456789012300'),
-        'user_oid': ObjectId('123467890123456789014567'),
-        'action': 'change_passwd',
-        'preference': 100,
-        'params': {
-            }
-        }
+    '_id': ObjectId('234567890123456789012300'),
+    'user_oid': ObjectId('123467890123456789014567'),
+    'action': 'change_passwd',
+    'preference': 100,
+    'params': {
+    }
+}
 
 TEST_PASSWORD_1 = {
-        'id': ObjectId('112345678901234567890123'),
-        'salt': '$NDNv1H1$9c810d852430b62a9a7c6159d5d64c41c3831846f81b6799b54e1e8922f11545$32$32$',
-    }
+    'id': ObjectId('112345678901234567890123'),
+    'salt': '$NDNv1H1$9c810d852430b62a9a7c6159d5d64c41c3831846f81b6799b54e1e8922f11545$32$32$',
+}
 
 TEST_USER_ID = ObjectId('123467890123456789014567')
 
@@ -36,7 +37,8 @@ TEST_USER = {
     'photo': 'https://pointing.to/your/photo',
     'preferredLanguage': 'en',
     'eduPersonPrincipalName': 'hubba-bubba',
-    'modified_ts': datetime.strptime("2013-09-02T10:23:25", "%Y-%m-%dT%H:%M:%S"),
+    'modified_ts': datetime.strptime("2013-09-02T10:23:25",
+                                     "%Y-%m-%dT%H:%M:%S"),
     'eduPersonEntitlement': [
         'urn:mace:eduid.se:role:admin',
         'urn:mace:eduid.se:role:student',
@@ -83,10 +85,10 @@ class ChPassActionTests(FunctionalTestCase):
     def setUp(self):
         mongo_uri_base = 'mongodb://localhost:{0}/'
         self.settings = {
-                'mongo_uri_am': mongo_uri_base + 'eduid_am_testing',
-                'mongo_uri_dashboard': mongo_uri_base + 'eduid_dashboard_testing',
-                'vccs_url': 'dummy',
-                }
+            'mongo_uri_am': mongo_uri_base + 'eduid_am_testing',
+            'mongo_uri_dashboard': mongo_uri_base + 'eduid_dashboard_testing',
+            'vccs_url': 'dummy',
+        }
         super(ChPassActionTests, self).setUp()
         mongodb_am = MongoDB(self.settings['mongo_uri_am'])
         self.am_db = mongodb_am.get_database()
@@ -94,12 +96,12 @@ class ChPassActionTests(FunctionalTestCase):
         mongodb_dashboard = MongoDB(self.settings['mongo_uri_dashboard'])
         self.dashboard_db = mongodb_dashboard.get_database()
         self.dashboard_db.profiles.insert(deepcopy(TEST_USER))
-        self.vccs_client = get_vccs_client('dummy')
+        self.vccs = get_vccs_client('dummy')
 
     def tearDown(self):
         self.am_db.attributes.drop()
         self.dashboard_db.profiles.drop()
-        self.vccs_client.credentials = {}
+        self.vccs.credentials = {}
         super(ChPassActionTests, self).tearDown()
 
     def add_credential(self, userid, passwd):
@@ -108,7 +110,7 @@ class ChPassActionTests(FunctionalTestCase):
             credential_id=str(TEST_PASSWORD_1['id']),
             salt=str(TEST_PASSWORD_1['salt']),
         )
-        self.vccs_client.add_credentials(userid, [factor])
+        self.vccs.add_credentials(str(userid), [factor])
 
     def test_action_success(self):
         self.db.actions.insert(CHPASS_ACTION)
@@ -116,7 +118,7 @@ class ChPassActionTests(FunctionalTestCase):
         # token verification is disabled in the setUp
         # method of FunctionalTestCase
         url = ('/?userid=123467890123456789014567'
-                '&token=abc&nonce=sdf&ts=1401093117')
+               '&token=abc&nonce=sdf&ts=1401093117')
         res = self.testapp.get(url)
         self.assertEqual(res.status, '302 Found')
         res = self.testapp.get(res.location)
@@ -124,5 +126,7 @@ class ChPassActionTests(FunctionalTestCase):
         form = res.forms['passwords-form']
         form['old_password'] = 'abcd'
         self.assertEqual(self.db.actions.find({}).count(), 1)
-        form.submit('save')
+        with patch.object(RootFactory, 'propagate_user_changes'):
+            RootFactory.propagate_user_changes.return_value = None
+            res = form.submit('save')
         self.assertEqual(self.db.actions.find({}).count(), 0)
