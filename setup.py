@@ -43,6 +43,6 @@ setup(name='eduid_action.change_passwd',
       ],
       entry_points="""
         [eduid_actions.action]
-            change_passwd = eduid_action.change_passwd:ChangePasswdPlugin
+            change_passwd = eduid_action.change_passwd.action:ChangePasswdPlugin
       """,
       )
