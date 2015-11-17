@@ -130,6 +130,9 @@ def add_credentials(vccs_url, old_password, new_password, user):
 
     passwords = user.get_passwords()
     old_factor = None
+    # remember if an old password was supplied or not, without keeping it in
+    # memory longer than we have to
+    old_password_supplied = bool(old_password)
     if passwords and old_password:
         # Find the old credential to revoke
         old_password = check_password(vccs_url, old_password, user, vccs=vccs)
@@ -138,7 +141,7 @@ def add_credentials(vccs_url, old_password, new_password, user):
         old_factor = vccs_client.VCCSRevokeFactor(
             str(old_password['id']),
             'changing password',
-            reference='dashboard',
+            reference='action.chpasswd',
         )
 
     if not vccs.add_credentials(str(user.get_id()), [new_factor]):
@@ -153,21 +156,28 @@ def add_credentials(vccs_url, old_password, new_password, user):
         # Use the user_id_hint inserted by check_password() until we know all
         # credentials use str(user['_id']) as user_id.
         vccs.revoke_credentials(old_password['user_id_hint'], [old_factor])
-        passwords.remove(old_password)
+        passwords = [x for x in passwords if x['id'] != checked_password['id']]
         log.debug("Revoked old credential {!s} (user {!s})".format(
             old_factor.credential_id, user.get_id()))
-    elif not old_password:
+
+    elif not old_password_supplied:
         # TODO: Revoke all current credentials on password reset for now
         revoked = []
         for password in passwords:
             revoked.append(vccs_client.VCCSRevokeFactor(str(password['id']),
                                                         'reset password',
-                                                        reference='dashboard'))
+                                                        reference='action.chpasswd'))
             log.debug("Revoked old credential (password reset) "
                       "{!s} (user {!s})".format(
                           password['id'], user.get_id()))
         if revoked:
-            vccs.revoke_credentials(str(user.get_id()), revoked)
+            try:
+                vccs.revoke_credentials(str(user.get_id()), revoked)
+            except vccs_client.VCCSClientHTTPError:
+                # Password already revoked
+                # TODO: vccs backend should be changed to return something more informative than
+                # TODO: VCCSClientHTTPError when the credential is already revoked or just return success.
+                pass
         del passwords[:]
 
     passwords.append({
@@ -179,15 +189,6 @@ def add_credentials(vccs_url, old_password, new_password, user):
     user.set_passwords(passwords)
 
     return True
-
-
-def change_password(request, user, old_password, new_password):
-    """ Change the user password, deleting old credentials """
-    vccs_url = request.registry.settings.get('vccs_url')
-    added = add_credentials(vccs_url, old_password, new_password, user)
-    if added:
-        user.save(request, check_sync=False)
-    return added
 
 
 def provision_credentials(vccs_url, new_password, user):

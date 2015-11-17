@@ -39,12 +39,14 @@ from pyramid.exceptions import ConfigurationError
 
 from jinja2 import Environment, PackageLoader
 
-from eduid_am.db import MongoDB
-from eduid_am.userdb import UserDB
 from eduid_am.config import read_setting_from_env
+from eduid_am.tasks import update_attributes_keep_result
+from eduid_userdb import UserDB
+from eduid_userdb.actions.chpass import ChpassUserDB
+from eduid_userdb.passwords import Password
 
 from eduid_actions.action_abc import ActionPlugin
-from eduid_action.change_passwd.vccs import check_password, change_password
+from eduid_action.change_passwd.vccs import check_password, add_credentials
 
 import logging
 log = logging.getLogger(__name__)
@@ -93,8 +95,7 @@ class ChangePasswdPlugin(ActionPlugin):
         '''
         settings = config.registry.settings
 
-        for item in ('mongo_uri_dashboard',
-                     'mongo_uri_am',
+        for item in ('mongo_uri',
                      'vccs_url'):
             settings[item] = read_setting_from_env(settings, item, None)
             if settings[item] is None:
@@ -107,32 +108,11 @@ class ChangePasswdPlugin(ActionPlugin):
             settings[item] = int(read_setting_from_env(settings,
                                                        item, default))
 
-        mongo_replicaset = settings.get('mongo_replicaset', None)
-        if mongo_replicaset is not None:
-            profiles_mongodb = MongoDB(db_uri=settings['mongo_uri_dashboard'],
-                                       replicaSet=mongo_replicaset)
-            am_mongodb = MongoDB(db_uri=settings['mongo_uri_am'],
-                                 replicaSet=mongo_replicaset)
-        else:
-            profiles_mongodb = MongoDB(db_uri=settings['mongo_uri_dashboard'])
-            am_mongodb = MongoDB(db_uri=settings['mongo_uri_am'])
-        profiles_db = profiles_mongodb.get_database()
-        settings['profiles_db'] = profiles_db
+        chpasswd_db = ChpassUserDB(settings['mongo_uri'])
+        settings['chpasswd_db'] = chpasswd_db
         config.set_request_property(
-            lambda x: x.registry.settings['profiles_db'],
-            'profiles_db',
-            reify=True)
-        am_db = am_mongodb.get_database()
-        settings['am_db'] = am_db
-        config.set_request_property(
-            lambda x: x.registry.settings['am_db'],
-            'am_db',
-            reify=True)
-        userdb = UserDB(settings)
-        settings['userdb'] = userdb
-        config.set_request_property(
-            lambda x: x.registry.settings['userdb'],
-            'userdb',
+            lambda x: x.registry.settings['chpasswd_db'],
+            'chpasswd_db',
             reify=True)
 
     def get_number_of_steps(self):
@@ -148,7 +128,7 @@ class ChangePasswdPlugin(ActionPlugin):
             'csrf_token': request.session.get_csrf_token(),
             'suggested_password': generate_suggested_password(request),
             'password_entropy': request.registry.settings.get(
-                'password_entropy', '60'),
+                'password_entropy'),
             'errors': errors,
             }
         return template.render(**context)
@@ -161,30 +141,28 @@ class ChangePasswdPlugin(ActionPlugin):
         userid = action['user_oid']
         user = request.userdb.get_user_by_oid(userid)
         self._check_old_password(request, user, old_password)
+        added = self._change_password(request, user, old_password)
 
-        if request.POST.get('use_custom_password') == 'true':
-            # The user has entered his own password and it was verified by
-            # validators
-            log.debug("Password change for user {!r} "
-                      "(custom password).".format(userid))
-            new_password = request.POST.get('custom_password')
-
-        else:
-            # If the user has selected the suggested password, then it should
-            # be in session
-            log.debug("Password change for user {!r} "
-                      "(suggested password).".format(userid))
-            new_password = generate_suggested_password(request)
-
-        new_password = new_password.replace(' ', '')
-
-        self.changed = change_password(request, user,
-                                       old_password, new_password)
-        if not self.changed:
+        if not added:
             message = _('An error has occured while updating your password, '
                         'please try again or contact support '
                         'if the problem persists.')
             raise self.ActionError(message)
+
+        request.chpasswd_db.save(user)
+        logger.debug("Asking for sync of {!s} by Attribute Manager".format(user))
+        rtask = update_attributes_keep_result.delay('chpasswd', str(user.user_id))
+        try:
+            result = rtask.get(timeout=10)
+            logger.debug("Attribute Manager sync result: {!r}".format(result))
+        except Exception, e:
+            logger.exception("Failed Attribute Manager sync request: " + str(e))
+            message = _('There were problems with your submission. '
+                        'You may want to try again later, '
+                        'or contact the site administrators.')
+            request.session.flash(message)
+            raise HTTPInternalServerError()
+
 
     #  Helper methods
     def _check_csrf_token(self, request):
@@ -207,3 +185,23 @@ class ChangePasswdPlugin(ActionPlugin):
             errors = {'old_password': _('Current password is incorrect')}
             raise self.ValidationError(errors)
 
+    def _change_password(self, request, user, old_password):
+
+        if request.POST.get('use_custom_password') == 'true':
+            # The user has entered his own password and it was verified by
+            # validators
+            log.debug("Password change for user {!r} "
+                      "(custom password).".format(user.user_id))
+            new_password = request.POST.get('custom_password')
+
+        else:
+            # If the user has selected the suggested password, then it should
+            # be in session
+            log.debug("Password change for user {!r} "
+                      "(suggested password).".format(user.user_id))
+            new_password = generate_suggested_password(request)
+
+        new_password = new_password.replace(' ', '')
+        vccs_url = request.registry.settings.get('vccs_url')
+        added = add_credentials(vccs_url, old_password, new_password, user)
+        return added
