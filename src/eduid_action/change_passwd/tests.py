@@ -1,107 +1,54 @@
 # -*- coding: utf8 -*
 
 from datetime import datetime
-from bson import ObjectId
+import bson
 from copy import deepcopy
 from mock import patch
 import vccs_client
 from eduid_am.db import MongoDB
+from eduid_userdb.user import User
+from eduid_userdb.testing import MOCKED_USER_STANDARD
 from eduid_actions.testing import FunctionalTestCase
 from eduid_actions.context import RootFactory
-from eduid_action.change_passwd.vccs import get_vccs_client
+from eduid_common.authn.testing import get_vccs_client
+
+
+TEST_USER_ID = bson.ObjectId('012345678901234567890123')
+
+TEST_PASSWORD_1 = {
+    'id': bson.ObjectId('112345678901234567890123'),
+    'salt': '$NDNv1H1$9c810d852430b62a9a7c6159d5d64c41c3831846f81b6799b54e1e8922f11545$32$32$',
+}
 
 
 CHPASS_ACTION = {
-    '_id': ObjectId('234567890123456789012300'),
-    'user_oid': ObjectId('123467890123456789014567'),
+    '_id': bson.ObjectId('234567890123456789012300'),
+    'user_oid': TEST_USER_ID,
     'action': 'change_passwd',
     'preference': 100,
     'params': {
     }
 }
 
-TEST_PASSWORD_1 = {
-    'id': ObjectId('112345678901234567890123'),
-    'salt': '$NDNv1H1$9c810d852430b62a9a7c6159d5d64c41c3831846f81b6799b54e1e8922f11545$32$32$',
-}
-
-TEST_USER_ID = ObjectId('123467890123456789014567')
-
-TEST_USER = {
-    '_id': TEST_USER_ID,
-    'givenName': 'John',
-    'sn': 'Smith',
-    'displayName': 'John Smith',
-    'mail': 'johnsmith@example.com',
-    'norEduPersonNIN': ['197801011234'],
-    'photo': 'https://pointing.to/your/photo',
-    'preferredLanguage': 'en',
-    'eduPersonPrincipalName': 'hubba-bubba',
-    'modified_ts': datetime.strptime("2013-09-02T10:23:25",
-                                     "%Y-%m-%dT%H:%M:%S"),
-    'eduPersonEntitlement': [
-        'urn:mace:eduid.se:role:admin',
-        'urn:mace:eduid.se:role:student',
-    ],
-    'maxReachedLoa': 3,
-    'mobile': [{
-        'mobile': '+34609609609',
-        'verified': True
-    }, {
-        'mobile': '+34 6096096096',
-        'verified': False
-    }],
-    'mailAliases': [{
-        'email': 'johnsmith@example.com',
-        'verified': True,
-    }, {
-        'email': 'johnsmith2@example.com',
-        'verified': True,
-    }, {
-        'email': 'johnsmith3@example.com',
-        'verified': False,
-    }],
-    'passwords': [deepcopy(TEST_PASSWORD_1)],
-    'postalAddress': [{
-        'type': 'home',
-        'country': 'SE',
-        'address': "Long street, 48",
-        'postalCode': "123456",
-        'locality': "Stockholm",
-        'verified': True,
-    }, {
-        'type': 'work',
-        'country': 'ES',
-        'address': "Calle Ancha, 49",
-        'postalCode': "123456",
-        'locality': "Punta Umbria",
-        'verified': False,
-    }],
-}
-
-
 class ChPassActionTests(FunctionalTestCase):
 
     def setUp(self):
-        mongo_uri_base = 'mongodb://localhost:{0}/'
-        self.settings = {
-            'mongo_uri_am': mongo_uri_base + 'eduid_am_testing',
-            'mongo_uri_dashboard': mongo_uri_base + 'eduid_dashboard_testing',
-            'vccs_url': 'dummy',
-        }
-        super(ChPassActionTests, self).setUp()
-        mongodb_am = MongoDB(self.settings['mongo_uri_am'])
-        self.am_db = mongodb_am.get_database()
-        self.am_db.attributes.insert(deepcopy(TEST_USER))
-        mongodb_dashboard = MongoDB(self.settings['mongo_uri_dashboard'])
-        self.dashboard_db = mongodb_dashboard.get_database()
-        self.dashboard_db.profiles.insert(deepcopy(TEST_USER))
-        self.vccs = get_vccs_client('dummy')
+        super(ChPassActionTests, self).setUp(settings={'vccs_url': 'dummy'})
+        self.chpass_db = self.testapp.app.registry.settings['chpasswd_db']
+        user_data = deepcopy(MOCKED_USER_STANDARD)
+        user_data['modified_ts'] = datetime.utcnow()
+        self.amdb.save(User(data=user_data), check_sync=False)
+        self.test_user_id =  '012345678901234567890123'
+        self.vccs = get_vccs_client(self.settings['vccs_url'])
+        import eduid_common.authn.vccs
+        self.vccs_patcher = patch.object(eduid_common.authn.vccs,
+                'get_vccs_client', get_vccs_client)
+        self.vccs_patcher.start()
 
     def tearDown(self):
-        self.am_db.attributes.drop()
-        self.dashboard_db.profiles.drop()
-        self.vccs.credentials = {}
+        self.vccs_patcher.stop()
+        self.chpass_db._drop_whole_collection()
+        self.amdb._drop_whole_collection()
         super(ChPassActionTests, self).tearDown()
 
     def add_credential(self, userid, passwd):
@@ -113,11 +60,11 @@ class ChPassActionTests(FunctionalTestCase):
         self.vccs.add_credentials(str(userid), [factor])
 
     def get_password_form(self):
-        self.db.actions.insert(CHPASS_ACTION)
+        self.actions_db._coll.insert(CHPASS_ACTION)
         self.add_credential(TEST_USER_ID, 'abcd')
         # token verification is disabled in the setUp
         # method of FunctionalTestCase
-        url = ('/?userid=123467890123456789014567'
+        url = ('/?userid=' + str(TEST_USER_ID) +
                '&token=abc&nonce=sdf&ts=1401093117')
         res = self.testapp.get(url)
         self.assertEqual(res.status, '302 Found')
@@ -128,17 +75,13 @@ class ChPassActionTests(FunctionalTestCase):
     def test_action_success(self):
         form = self.get_password_form()
         form['old_password'] = 'abcd'
-        self.assertEqual(self.db.actions.find({}).count(), 1)
-        with patch.object(RootFactory, 'propagate_user_changes'):
-            RootFactory.propagate_user_changes.return_value = None
-            res = form.submit('save')
-        self.assertEqual(self.db.actions.find({}).count(), 0)
+        self.assertEqual(self.actions_db.db_count(), 1)
+        res = form.submit('save')
+        self.assertEqual(self.actions_db.db_count(), 0)
 
     def test_action_wrong_password(self):
         form = self.get_password_form()
         form['old_password'] = 'efgh'
-        self.assertEqual(self.db.actions.find({}).count(), 1)
-        with patch.object(RootFactory, 'propagate_user_changes'):
-            RootFactory.propagate_user_changes.return_value = None
-            res = form.submit('save')
+        self.assertEqual(self.actions_db.db_count(), 1)
+        res = form.submit('save')
         self.assertIn('Current password is incorrect', res.body)

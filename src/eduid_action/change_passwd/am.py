@@ -90,7 +90,7 @@ def attribute_fetcher(context, user_id):
     logger.debug("Processing user {!r}:\n{!s}".format(user_id,
         pprint.pformat(user_dict)))
 
-    attributes = {'$push': {'passwords': user_dict['passwords'][0]}}
+    attributes = {'$set': {'passwords': user_dict['passwords']}}
 
     try:
         context.chpasswd_db.remove_user_by_id(user_id)

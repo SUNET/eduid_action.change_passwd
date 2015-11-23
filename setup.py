@@ -1,7 +1,26 @@
 from setuptools import setup, find_packages
 import os
 
-version = '0.1'
+
+version = '0.1.0'
+
+requires = [
+    'setuptools>=18.5',
+    'eduid_actions>=0.0.1',
+    'eduid-common>=0.1.0',
+    'pwgen==0.4',
+]
+
+test_requires = [
+    'WebTest==2.0.18',
+    'mock==1.0.1',
+]
+
+testing_extras = test_requires + [
+    'nose==1.3.7',
+    'coverage==4.0',
+    'nosexcover==1.0.10',
+]
 
 long_description = (
     open('README.txt').read()
@@ -33,16 +52,17 @@ setup(name='eduid_action.change_passwd',
       namespace_packages=['eduid_action'],
       include_package_data=True,
       zip_safe=False,
-      install_requires=[
-          'setuptools==3.6',
-          'eduid_actions>=0.0.1-dev',
-          'eduid-am>=0.4.9-dev',
-          'jinja2==2.7.3',
-          'pwgen==0.4',
-          'vccs_client>=0.4.1',
-      ],
-      entry_points="""
-        [eduid_actions.action]
-            change_passwd = eduid_action.change_passwd.action:ChangePasswdPlugin
-      """,
+      install_requires=requires,
+      tests_require=test_requires,
+      extras_require={
+          'testing': testing_extras,
+      },
+      entry_points={
+          'eduid_actions.action':
+                    ['change_passwd = eduid_action.change_passwd.action:ChangePasswdPlugin'],
+          'eduid_am.attribute_fetcher':
+                    ['change_passwd = eduid_action.change_passwd.am:attribute_fetcher'],
+          'eduid_am.plugin_init':
+                    ['change_passwd = eduid_action.change_passwd.am:plugin_init'],
+          },
       )

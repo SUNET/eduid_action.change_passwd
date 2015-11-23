@@ -42,14 +42,13 @@ from jinja2 import Environment, PackageLoader
 from eduid_am.config import read_setting_from_env
 from eduid_am.tasks import update_attributes_keep_result
 from eduid_userdb import UserDB
-from eduid_userdb.actions.chpass import ChpassUserDB
-from eduid_userdb.passwords import Password
+from eduid_userdb.actions.chpass import ChpassUserDB, ChpassUser
 
 from eduid_actions.action_abc import ActionPlugin
-from eduid_action.change_passwd.vccs import check_password, add_credentials
+from eduid_common.authn.vccs import check_password, add_credentials
 
 import logging
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 PACKAGE_NAME = 'eduid_action.change_passwd'
@@ -138,8 +137,9 @@ class ChangePasswdPlugin(ActionPlugin):
         self._check_csrf_token(request)
         old_password = request.POST.get('old_password', '')
         old_password = old_password.replace(" ", "")
-        userid = action['user_oid']
-        user = request.userdb.get_user_by_oid(userid)
+        userid = action.user_id
+        central_user = request.amdb.get_user_by_id(userid)
+        user = ChpassUser.from_central_user(central_user)
         self._check_old_password(request, user, old_password)
         added = self._change_password(request, user, old_password)
 
@@ -149,9 +149,10 @@ class ChangePasswdPlugin(ActionPlugin):
                         'if the problem persists.')
             raise self.ActionError(message)
 
-        request.chpasswd_db.save(user)
+        request.chpasswd_db.save(user, check_sync=False)
         logger.debug("Asking for sync of {!s} by Attribute Manager".format(user))
-        rtask = update_attributes_keep_result.delay('chpasswd', str(user.user_id))
+        rtask = update_attributes_keep_result.delay('change_passwd',
+                                                       str(user.user_id))
         try:
             result = rtask.get(timeout=10)
             logger.debug("Attribute Manager sync result: {!r}".format(result))
@@ -169,7 +170,7 @@ class ChangePasswdPlugin(ActionPlugin):
         value = request.POST.get('csrf', '')
         token = request.session.get_csrf_token()
         if value != token:
-            log.debug("CSRF token validation failed: "
+            logger.debug("CSRF token validation failed: "
                       "Form {!r} != Session {!r}".format(value, token))
             _ = self.get_ugettext(request)
             err = _("Invalid CSRF token")
@@ -190,18 +191,19 @@ class ChangePasswdPlugin(ActionPlugin):
         if request.POST.get('use_custom_password') == 'true':
             # The user has entered his own password and it was verified by
             # validators
-            log.debug("Password change for user {!r} "
+            logger.debug("Password change for user {!r} "
                       "(custom password).".format(user.user_id))
             new_password = request.POST.get('custom_password')
 
         else:
             # If the user has selected the suggested password, then it should
             # be in session
-            log.debug("Password change for user {!r} "
+            logger.debug("Password change for user {!r} "
                       "(suggested password).".format(user.user_id))
             new_password = generate_suggested_password(request)
 
         new_password = new_password.replace(' ', '')
         vccs_url = request.registry.settings.get('vccs_url')
-        added = add_credentials(vccs_url, old_password, new_password, user)
+        added = add_credentials(vccs_url, old_password, new_password, user,
+                source='change_passwd')
         return added
