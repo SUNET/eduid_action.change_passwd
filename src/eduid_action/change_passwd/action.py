@@ -32,12 +32,14 @@
 
 __author__ = 'eperez'
 
+import json
 from pwgen import pwgen
 
 from pyramid.httpexceptions import HTTPBadRequest
 from pyramid.exceptions import ConfigurationError
 
 from jinja2 import Environment, PackageLoader
+from pyramid_jinja2.filters import static_url_filter
 
 from eduid_am.config import read_setting_from_env
 from eduid_am.tasks import update_attributes_keep_result
@@ -55,6 +57,7 @@ PACKAGE_NAME = 'eduid_action.change_passwd'
 
 
 env = Environment(loader=PackageLoader(PACKAGE_NAME, 'templates'))
+env.filters['static_url'] = static_url_filter
 
 
 def generate_password(length=12):
@@ -121,7 +124,12 @@ class ChangePasswdPlugin(ActionPlugin):
                                  request, errors=None):
         if errors is None:
             errors = {}
-        template = env.get_template('main.jinja2')
+        # Collect the users mail addresses for use with zxcvbn
+        userid = action.user_id
+        user = request.amdb.get_user_by_id(userid)
+        mail_addresses = []
+        for item in user.mail_addresses.to_list():
+            mail_addresses.append(item.email)
         context = {
             '_': self.get_ugettext(request),
             'csrf_token': request.session.get_csrf_token(),
@@ -129,7 +137,10 @@ class ChangePasswdPlugin(ActionPlugin):
             'password_entropy': request.registry.settings.get(
                 'password_entropy'),
             'errors': errors,
+            'request': request,
+            'user_input': json.dumps(mail_addresses),
             }
+        template = env.get_template('main.jinja2')
         return template.render(**context)
 
     def perform_action(self, action, request):
