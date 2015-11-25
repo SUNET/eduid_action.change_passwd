@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: eduid_action.change_passwd 0.1\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2014-11-05 13:16+0100\n"
+"POT-Creation-Date: 2015-11-25 08:19+0100\n"
 "PO-Revision-Date: 2014-11-05 13:16+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: en <LL@li.org>\n"
@@ -17,4 +17,90 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 1.3\n"
+
+#: src/eduid_action/change_passwd/action.py:158
+msgid ""
+"An error has occured while updating your password, please try again or "
+"contact support if the problem persists."
+msgstr ""
+
+#: src/eduid_action/change_passwd/action.py:172
+msgid ""
+"There were problems with your submission. You may want to try again "
+"later, or contact the site administrators."
+msgstr ""
+
+#: src/eduid_action/change_passwd/action.py:187
+msgid "Invalid CSRF token"
+msgstr ""
+
+#: src/eduid_action/change_passwd/action.py:197
+msgid "Current password is incorrect"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:4
+msgid "Change your password"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:10
+msgid ""
+"You must change your current password using this form. A strong password "
+"has been generated for you. You can accept the generated password by "
+"clicking \"Change password\" or you can opt to choose your own password "
+"using the checkbox."
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:16
+msgid "Choose a strong password. Some tips:"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:18
+msgid ""
+"Use upper- and lowercase characters (preferably not in the beginning or "
+"end)"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:19
+msgid "Add digits somewhere else than at the end of the password"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:20
+msgid "Add special characters, such as @ $ / + _ %"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:21
+msgid "Spaces are ignored"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:42
+msgid "Current password"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:53
+msgid "Use my own password"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:61
+msgid "Suggested password"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:71
+msgid "Custom password"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:79
+msgid "Repeat the password"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:89
+msgid "Change password"
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:96
+msgid "A stronger password is required."
+msgstr ""
+
+#: src/eduid_action/change_passwd/templates/main.jinja2:97
+msgid "Type the same password again"
+msgstr ""
 
