@@ -30,6 +30,9 @@ CHPASS_ACTION = {
     }
 }
 
+GOOD_PASSWORD = 'abcd'
+BAD_PASSWORD = 'fghi'
+
 class ChPassActionTests(FunctionalTestCase):
 
     def setUp(self):
@@ -61,7 +64,7 @@ class ChPassActionTests(FunctionalTestCase):
 
     def get_password_form(self):
         self.actions_db._coll.insert(CHPASS_ACTION)
-        self.add_credential(TEST_USER_ID, 'abcd')
+        self.add_credential(TEST_USER_ID, GOOD_PASSWORD)
         # token verification is disabled in the setUp
         # method of FunctionalTestCase
         url = ('/?userid=' + str(TEST_USER_ID) +
@@ -74,14 +77,36 @@ class ChPassActionTests(FunctionalTestCase):
 
     def test_action_success(self):
         form = self.get_password_form()
-        form['old_password'] = 'abcd'
+        form['old_password'] = GOOD_PASSWORD
         self.assertEqual(self.actions_db.db_count(), 1)
         res = form.submit('save')
         self.assertEqual(self.actions_db.db_count(), 0)
 
     def test_action_wrong_password(self):
         form = self.get_password_form()
-        form['old_password'] = 'efgh'
+        form['old_password'] = BAD_PASSWORD
         self.assertEqual(self.actions_db.db_count(), 1)
         res = form.submit('save')
         self.assertIn('Current password is incorrect', res.body)
+        self.assertEqual(self.actions_db.db_count(), 1)
+
+    def test_custom_password_success(self):
+        form = self.get_password_form()
+        form['old_password'] = GOOD_PASSWORD
+        form['use_custom_password'] = True
+        form['custom_password'] = 'wxyz'
+        form['repeated_password'] = 'wxyz'
+        self.assertEqual(self.actions_db.db_count(), 1)
+        res = form.submit('save')
+        self.assertEqual(self.actions_db.db_count(), 0)
+
+    def test_custom_password_mismatched(self):
+        form = self.get_password_form()
+        form['old_password'] = GOOD_PASSWORD
+        form['use_custom_password'] = True
+        form['custom_password'] = 'wxyz'
+        form['repeated_password'] = 'rstv'
+        self.assertEqual(self.actions_db.db_count(), 1)
+        res = form.submit('save')
+        self.assertIn('The provided passwords do not match.', res.body)
+        self.assertEqual(self.actions_db.db_count(), 1)
