@@ -5,10 +5,10 @@ import os
 version = '0.1.0'
 
 requires = [
-    'setuptools>=18.5',
+    'setuptools>=2.2',
     'eduid_actions>=0.0.1',
     'eduid-common>=0.1.0',
-    'pwgen==0.4',
+    'pwgen>=0.4',
 ]
 
 test_requires = [
