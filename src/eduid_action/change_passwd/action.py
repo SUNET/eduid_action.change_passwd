@@ -202,9 +202,14 @@ class ChangePasswdPlugin(ActionPlugin):
         if request.POST.get('use_custom_password') == 'true':
             # The user has entered his own password and it was verified by
             # validators
+            new_password = request.POST.get('custom_password')
+            repeated_password = request.POST.get('repeated_password')
+            if new_password != repeated_password:
+                _ = self.get_ugettext(request)
+                message = _('The provided passwords do not match.')
+                raise self.ActionError(message)
             logger.debug("Password change for user {!r} "
                       "(custom password).".format(user.user_id))
-            new_password = request.POST.get('custom_password')
 
         else:
             # If the user has selected the suggested password, then it should
