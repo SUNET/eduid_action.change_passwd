@@ -8,7 +8,7 @@ requires = [
     'setuptools>=2.2',
     'eduid_actions>=0.0.1',
     'eduid-common>=0.1.0',
-    'pwgen>=0.4',
+    'pwgen==0.4',
 ]
 
 test_requires = [
